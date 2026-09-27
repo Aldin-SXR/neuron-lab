@@ -27,14 +27,14 @@ async function trainUntil(page: Page, testId: 'epoch' | 'accuracy', minimum: num
 test('learn the real ANN calculations, undo an exact weight update, and train continuously', async ({ page }) => {
   const errors = trackErrors(page);
   await open(page);
-  await expect(page.getByRole('heading', { name: 'See learning happen.' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Feedforward network (ANN)' })).toBeVisible();
   await expect(lab(page).getByTestId('step-number')).toHaveText('1');
   await expect(page.getByRole('button', { name: 'Step backward', exact: true })).toBeDisabled();
   await page.screenshot({ path: 'test-results/neuron-lab-desktop.png', fullPage: true });
   for (let i = 0; i < 17; i++) await stepForward(page);
   await page.keyboard.press('ArrowRight');
   await expect(lab(page).getByTestId('step-number')).toHaveText('19');
-  await expect(page.getByText('A small step toward better.')).toBeVisible();
+  await expect(page.getByText('Weight update')).toBeVisible();
   const weights = () => page.locator('.wire-hit').evaluateAll(nodes => nodes.map(node => node.getAttribute('aria-label')));
   const before = await weights();
   await stepForward(page);
@@ -81,13 +81,13 @@ test('edit the ANN architecture and parameters, use softmax, and explore 2D poin
   await lab(page).getByLabel('Bias', { exact: true }).fill('0.1');
   await page.getByRole('button', { name: 'Apply parameters', exact: true }).click();
   await expect(page.locator('.wire-hit').first()).toHaveAttribute('aria-label', /0.7500/);
-  await lab(page).getByLabel('Pick a problem').selectOption('circle');
-  await expect(page.getByRole('heading', { name: 'Find the inner circle' })).toBeVisible();
+  await lab(page).getByLabel('Problem').selectOption('circle');
+  await expect(page.getByRole('heading', { name: 'Circle', exact: true })).toBeVisible();
   await expect(lab(page).getByLabel('Learning rate')).toHaveValue('0.1');
   await expect(page.locator('.scatter circle')).toHaveCount(80);
   await page.getByRole('button', { name: /^Inspect point 1, class/ }).click();
   await expect(lab(page).getByTestId('step-number')).toHaveText('1');
-  await page.getByRole('button', { name: 'Use recommended settings', exact: true }).click();
+  await page.getByRole('button', { name: 'Reset to recommended settings', exact: true }).click();
   await trainMode(page);
   await trainUntil(page, 'epoch', 150);
   await expect.poll(async () => parseFloat((await lab(page).getByTestId('accuracy').textContent())!)).toBeGreaterThanOrEqual(85);
@@ -99,7 +99,7 @@ test('CNN: convolve, pool, backpropagate into filters, undo, train, and draw an 
   const errors = trackErrors(page);
   await open(page);
   await page.getByRole('radio', { name: /CNN/ }).click();
-  await expect(page.getByRole('heading', { name: 'Which way does the line go?' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Line direction' })).toBeVisible();
   // tanh keeps every filter's gradient nonzero (a ReLU filter can be inactive for a whole image).
   await lab(page).getByRole('combobox', { name: /Activation/ }).selectOption('tanh');
   await expect(page.getByRole('button', { name: 'Feature map 1, row 1, column 1, not calculated yet' })).toBeVisible();
@@ -108,7 +108,7 @@ test('CNN: convolve, pool, backpropagate into filters, undo, train, and draw an 
   await stepForward(page);
   await expect(page.getByRole('button', { name: /^Feature map 1, row 1, column 1: / })).toBeVisible();
   await page.getByRole('button', { name: /^Feature map 1, row 2, column 3: / }).click();
-  await expect(page.getByText('One position of the sliding filter.')).toBeVisible();
+  await expect(page.getByText('Feature map cell')).toBeVisible();
   await expect(page.locator('.pixel-grid .in-field')).toHaveCount(9);
   for (let i = 0; i < 15; i++) await stepForward(page);
   await expect(lab(page).getByTestId('step-number')).toHaveText('17');
@@ -122,11 +122,11 @@ test('CNN: convolve, pool, backpropagate into filters, undo, train, and draw an 
   await trainMode(page);
   await trainUntil(page, 'epoch', 40);
   await expect.poll(async () => parseFloat((await lab(page).getByTestId('accuracy').textContent())!)).toBeGreaterThanOrEqual(90);
-  await page.getByRole('tab', { name: 'Draw your own' }).click();
+  await page.getByRole('tab', { name: 'Draw' }).click();
   for (const column of [1, 2, 3, 4, 5, 6]) await page.getByRole('button', { name: `Toggle pixel row 3, column ${column}` }).click();
   await expect(page.locator('.draw-result .is-top .class-name')).toHaveText('Horizontal');
-  await lab(page).getByLabel('Pick a problem').selectOption('shapes');
-  await expect(page.getByRole('heading', { name: 'Recognize the shape' })).toBeVisible();
+  await lab(page).getByLabel('Problem').selectOption('shapes');
+  await expect(page.getByRole('heading', { name: 'Shapes', exact: true })).toBeVisible();
   await expect(lab(page).getByTestId('epoch')).toHaveText('0');
   expect(errors).toEqual([]);
 });
@@ -135,7 +135,7 @@ test('RNN: learn a custom word through time and write it back', async ({ page })
   const errors = trackErrors(page);
   await open(page);
   await page.getByRole('radio', { name: /RNN/ }).click();
-  await expect(page.getByRole('heading', { name: 'Spell a word, letter by letter' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Next letter' })).toBeVisible();
   await lab(page).getByLabel('Word to learn').fill('ab');
   await expect(page.getByText('Use 3–12 letters')).toBeVisible();
   await lab(page).getByLabel('Word to learn').fill('banana');
@@ -145,7 +145,7 @@ test('RNN: learn a custom word through time and write it back', async ({ page })
   await expect(page.locator('.time-column')).toHaveCount(5);
   for (let i = 0; i < 3; i++) await stepForward(page);
   await page.getByRole('button', { name: 'Time step 2, input a' }).click();
-  await expect(page.getByText('Memory meets a new input.')).toBeVisible();
+  await expect(page.getByText('Hidden state update')).toBeVisible();
   for (let i = 0; i < 10; i++) await stepForward(page);
   await expect(page.getByText('Update · recurrent weights Wh')).toBeVisible();
   await trainMode(page);
@@ -160,15 +160,15 @@ test('LSTM in Bosnian: switch language, remember the first bit, and keep prefere
   await open(page);
   await page.getByRole('group', { name: 'Language' }).getByRole('button', { name: 'BS' }).click();
   await expect(page.locator('html')).toHaveAttribute('lang', 'bs');
-  await expect(page.getByRole('heading', { name: 'Gledaj kako mreža uči.' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Unaprijedna mreža (ANN)' })).toBeVisible();
   await page.getByRole('radio', { name: /LSTM/ }).click();
-  await lab(page).getByLabel('Odaberi problem').selectOption('memory');
-  await expect(page.getByRole('heading', { name: 'Zapamti prvi bit' })).toBeVisible();
+  await lab(page).getByLabel('Problem').selectOption('memory');
+  await expect(page.getByRole('heading', { name: 'Prvi bit' })).toBeVisible();
   // Move focus off the controls (arrow keys there navigate the control) so the lesson shortcuts apply.
   await lab(page).locator('h1').click();
   await page.keyboard.press('ArrowRight');
   await page.keyboard.press('ArrowRight');
-  await expect(page.getByText('Kapije na djelu.')).toBeVisible();
+  await expect(page.getByText('LSTM kapije')).toBeVisible();
   await page.keyboard.press('ArrowLeft');
   await expect(lab(page).getByTestId('step-number')).toHaveText('2');
   await page.getByRole('group', { name: 'Način učenja' }).getByRole('button', { name: /^Treniraj/ }).click();
@@ -178,7 +178,7 @@ test('LSTM in Bosnian: switch language, remember the first bit, and keep prefere
   await page.getByRole('button', { name: 'Pauza', exact: true }).click();
   await page.screenshot({ path: 'test-results/neuron-lab-lstm-bs.png', fullPage: true });
   await page.reload();
-  await expect(page.getByRole('heading', { name: 'Riječ, slovo po slovo' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Sljedeće slovo' })).toBeVisible();
   await expect(page.getByRole('radio', { name: /LSTM/ })).toHaveAttribute('aria-checked', 'true');
   expect(errors).toEqual([]);
 });
@@ -187,20 +187,20 @@ test('first visit: welcome dialog, guided tour, guide, and text size', async ({ 
   const errors = trackErrors(page);
   await page.addInitScript(() => { if (!sessionStorage.getItem('seeded')) { localStorage.clear(); sessionStorage.setItem('seeded', '1'); } });
   await page.goto('/');
-  await expect(page.getByRole('heading', { name: 'Watch a neural network learn, one number at a time.' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Neural network visualizer' })).toBeVisible();
   await page.screenshot({ path: 'test-results/neuron-lab-welcome.png' });
-  await page.getByRole('button', { name: 'Show me around (1 min)' }).click();
-  await expect(page.getByRole('heading', { name: 'Choose a network' , exact: true })).toBeVisible();
+  await page.getByRole('button', { name: 'Take the tour (1 min)' }).click();
+  await expect(page.getByRole('heading', { name: 'Network type', exact: true })).toBeVisible();
   for (let i = 0; i < 8; i++) await page.getByRole('button', { name: 'Next', exact: true }).click();
   await expect(page.getByText('9 of 9')).toBeVisible();
-  await page.getByRole('button', { name: 'Start exploring' }).click();
+  await page.getByRole('button', { name: 'Done' }).click();
   await expect(page.locator('.tour-layer')).toHaveCount(0);
   await page.reload();
   await expect(page.getByRole('dialog')).toHaveCount(0);
   await page.getByRole('button', { name: 'Guide', exact: true }).click();
   await expect(page.getByRole('heading', { name: 'How to use Neuron Lab' })).toBeVisible();
   await page.getByRole('dialog').getByRole('button', { name: /Convolutional network/ }).click();
-  await expect(page.getByRole('heading', { name: 'Which way does the line go?' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Line direction' })).toBeVisible();
   await page.getByRole('button', { name: 'Larger text' }).click();
   expect(await page.evaluate(() => getComputedStyle(document.documentElement).fontSize)).toBe('18px');
   await page.getByRole('button', { name: 'Take the tour' }).click();
@@ -230,7 +230,7 @@ test('keyboard, labels, notifications, and localized numbers behave consistently
   // Arrow keys move through the network picker without advancing the lesson.
   await page.getByRole('radio', { name: /ANN/ }).focus();
   await page.keyboard.press('ArrowRight');
-  await expect(page.getByRole('heading', { name: 'Which way does the line go?' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Line direction' })).toBeVisible();
   await expect(page.getByRole('radio', { name: /CNN/ })).toBeFocused();
   await expect(lab(page).getByTestId('step-number')).toHaveText('1');
   await page.keyboard.press('ArrowRight');
@@ -248,7 +248,7 @@ test('keyboard, labels, notifications, and localized numbers behave consistently
   await page.getByRole('radio', { name: /CNN/ }).click();
   await page.getByRole('tab', { name: 'Gallery' }).focus();
   await page.keyboard.press('ArrowRight');
-  await expect(page.getByRole('tab', { name: 'Draw your own' })).toHaveAttribute('aria-selected', 'true');
+  await expect(page.getByRole('tab', { name: 'Draw' })).toHaveAttribute('aria-selected', 'true');
   // Repeating the same notification restarts its timer.
   await page.getByRole('tab', { name: 'Gallery' }).click();
   await page.getByRole('button', { name: /^Inspect image 2,/ }).click();

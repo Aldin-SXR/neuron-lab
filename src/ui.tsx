@@ -47,7 +47,6 @@ export function ArchitecturePicker({ value, onChange }: { value: Architecture; o
         <Icon size={20}/><span className="model-name">{t.arch[a].name}</span><small>{t.arch[a].short}</small>
       </button>;
     })}</div>
-    <p className="field-help arch-description"><strong>{t.arch[value].long}.</strong> {t.arch[value].description}</p>
   </section>;
 }
 export function Section({ number, label, htmlFor, tour, className = '', children }: { number: number; label: string; htmlFor?: string; tour?: string; className?: string; children: ReactNode }) {
@@ -61,9 +60,9 @@ export function LabLayout({ active, picker, sidebar, children, id }: { active: b
   return <div className="app-layout lab" hidden={!active} data-lab={id}>
     <aside className="sidebar"><div className="sidebar-title"><span>{t.app.experiment}</span></div>{picker}{sidebar}</aside>
     <main className="main-content">
-      <div className="page-intro"><div><div className="eyebrow intro-eyebrow"><span/> {t.app.eyebrow}</div><h1>{t.app.title}<span>.</span></h1><p>{t.app.subtitle}</p></div><span className="experiment-badge"><span className="tiny-dot purple"/> {t.arch[id].name} <span>·</span> {t.arch[id].long}</span></div>
+      <div className="page-intro"><h1>{t.arch[id].long} <span>({t.arch[id].name})</span></h1><p>{t.arch[id].description}</p></div>
       {children}
-      <footer className="main-footer"><span><span className="status-dot"/> {t.app.footer}</span><span className="shortcut-note">{t.app.shortcuts}</span><button className="text-button" onClick={openGuide}>{t.app.footerLink} <ArrowRight size={14}/></button></footer>
+      <footer className="main-footer"><span className="shortcut-note">{t.app.shortcuts}</span><button className="text-button" onClick={openGuide}>{t.app.footerLink} <ArrowRight size={14}/></button></footer>
     </main>
   </div>;
 }
@@ -123,7 +122,7 @@ export function ErrorBanner({ controls, onReset }: { controls: PlaybackControls;
 export function NetworkHeading({ title, stats, onReset, onSave, onRestore, hasSaved }: { title: string; stats: string[]; onReset: () => void; onSave: () => void; onRestore: () => void; hasSaved: boolean }) {
   const { t } = useI18n();
   return <div className="network-heading">
-    <div><h2>{title} <span className="small-chip live-chip">{t.common.live}</span></h2><p>{stats.map((s, i) => <span key={i}>{i > 0 && <span className="dot-sep">·</span>}{s}</span>)}</p></div>
+    <div><h2>{title}</h2><p>{stats.map((s, i) => <span key={i}>{i > 0 && <span className="dot-sep">·</span>}{s}</span>)}</p></div>
     <div className="heading-actions">
       <button className="ghost-button" onClick={onSave} aria-label={t.common.saveAria} title={t.common.saveAria}><Save size={16}/><span>{t.common.save}</span></button>
       {hasSaved && <button className="ghost-button" onClick={onRestore} aria-label={t.common.restoreAria} title={t.common.restoreAria}><RotateCcw size={16}/><span>{t.common.restore}</span></button>}

@@ -50,8 +50,6 @@ select { cursor: pointer; }
 .brand { display: flex; align-items: center; gap: .6rem; font-family: 'Manrope Variable', sans-serif; font-weight: 800; font-size: 1.55rem; letter-spacing: -.05em; color: var(--ink); white-space: nowrap; }
 .brand-mark { display: flex; align-items: center; justify-content: center; width: 2.3rem; height: 2.3rem; border-radius: .7rem; background: var(--purple); color: #fff; box-shadow: 0 3px 8px #6a52c433; }
 .brand-light { font-weight: 500; } .brand-period { color: var(--purple); }
-.header-center { display: flex; align-items: center; gap: 1.25rem; color: var(--muted); font-size: var(--fs-sm); }
-.header-divider { width: 1px; height: 1.5rem; background: var(--line); }
 .header-actions { margin-left: auto; display: flex; align-items: center; gap: .75rem; }
 .text-size button { font-weight: 700; }
 
@@ -69,7 +67,6 @@ select { cursor: pointer; }
 .model-button small { font-size: var(--fs-xs); color: var(--muted); font-weight: 500; }
 .model-button.active { background: var(--purple-soft); border-color: var(--purple); color: var(--purple-strong); box-shadow: 0 0 0 3px #6a52c41a; }
 .model-button.active svg { color: var(--purple); }
-.arch-description strong { color: var(--ink); font-weight: 700; }
 .select-wrap { display: flex; align-items: center; border: 1px solid var(--line); border-radius: .6rem; position: relative; background: var(--surface); padding-left: .7rem; color: var(--purple); }
 .select-wrap:focus-within { border-color: var(--purple); }
 .select-wrap > svg:last-child { position: absolute; right: .7rem; pointer-events: none; color: var(--subtle); }
@@ -117,13 +114,10 @@ input[type=range] { width: 100%; accent-color: var(--purple); margin: .8rem 0 .2
 
 /* Main */
 .main-content { padding: 1.75rem 2rem 1.5rem; max-width: 1760px; width: 100%; margin: 0 auto; min-width: 0; }
-.page-intro { display: flex; justify-content: space-between; align-items: flex-end; gap: 1rem; margin-bottom: 1.5rem; }
-.intro-eyebrow { display: flex; align-items: center; gap: .5rem; margin-bottom: .35rem; }
-.intro-eyebrow > span { width: .45rem; height: .45rem; border-radius: 50%; background: var(--purple); }
-.page-intro h1 { font-size: 2.1rem; font-weight: 800; letter-spacing: -.035em; line-height: 1.2; }
-.page-intro h1 > span { color: var(--purple); }
-.page-intro p { color: var(--muted); font-size: var(--fs-lg); margin-top: .3rem; }
-.experiment-badge { border: 1px solid var(--purple-line); border-radius: .5rem; background: var(--purple-soft); padding: .4rem .75rem; color: var(--purple-strong); display: flex; gap: .45rem; align-items: center; font-size: var(--fs-sm); font-weight: 600; white-space: nowrap; }
+.page-intro { margin-bottom: 1.25rem; }
+.page-intro h1 { font-size: 1.6rem; font-weight: 800; letter-spacing: -.02em; line-height: 1.25; }
+.page-intro h1 > span { color: var(--muted); font-weight: 600; }
+.page-intro p { color: var(--muted); font-size: var(--fs-md); margin-top: .2rem; }
 .experiment-topbar { display: flex; align-items: center; justify-content: space-between; margin-bottom: 1.1rem; gap: 1rem; flex-wrap: wrap; }
 .problem-title { display: flex; gap: .8rem; align-items: center; min-width: 0; flex: 1 1 20rem; }
 .problem-icon { border-radius: .7rem; background: var(--purple-soft); width: 2.7rem; height: 2.7rem; display: flex; align-items: center; justify-content: center; color: var(--purple); flex-shrink: 0; }
@@ -140,8 +134,6 @@ input[type=range] { width: 100%; accent-color: var(--purple); margin: .8rem 0 .2
 .network-card { display: flex; flex-direction: column; }
 .network-heading { padding: 1rem 1.25rem; display: flex; align-items: center; justify-content: space-between; gap: .75rem; flex-wrap: wrap; }
 .network-heading h2 { font-size: var(--fs-lg); font-weight: 800; display: flex; align-items: center; gap: .5rem; }
-.live-chip { color: var(--green); background: var(--green-soft); border-color: #cfe7dc; }
-.live-chip:before { content: ''; width: .4rem; height: .4rem; border-radius: 50%; background: var(--green); }
 .network-heading p { color: var(--muted); font-size: var(--fs-sm); margin-top: .2rem; }
 .dot-sep { margin: 0 .45rem; color: var(--subtle); }
 .heading-actions { display: flex; align-items: center; gap: .4rem; }
@@ -424,8 +416,7 @@ form .primary-button { margin-top: 1.4rem; }
 .welcome-points li > span { flex-shrink: 0; width: 1.9rem; height: 1.9rem; border-radius: 50%; background: var(--purple-soft); color: var(--purple-strong); font-weight: 800; display: flex; align-items: center; justify-content: center; }
 .welcome-points b { color: var(--ink); }
 .welcome-points p { font-size: var(--fs-sm); color: var(--muted); line-height: 1.5; }
-.main-footer { display: flex; justify-content: space-between; align-items: center; font-size: var(--fs-sm); color: var(--muted); margin-top: 1.5rem; gap: 1rem; flex-wrap: wrap; }
-.main-footer > span:first-child { display: flex; gap: .45rem; align-items: center; }
+.main-footer { display: flex; justify-content: flex-end; align-items: center; font-size: var(--fs-sm); color: var(--muted); margin-top: 1.5rem; gap: 1rem; flex-wrap: wrap; }
 .shortcut-note { color: var(--subtle); }
 
 /* Guided tour */
@@ -453,13 +444,12 @@ form .primary-button { margin-top: 1.4rem; }
   .sidebar { padding: 1.25rem 1rem; }
   .main-content { padding: 1.5rem 1.25rem; }
   .workbench { grid-template-columns: minmax(0, 1fr) 20rem; gap: 1rem; }
-  .header-center { display: none; }
   .phase-track li:not(:last-child):after { width: .5rem; }
 }
 @media (max-width: 1080px) {
   .workbench { grid-template-columns: minmax(0, 1fr); }
   .results-grid { grid-template-columns: 1fr; }
-  .experiment-badge, .shortcut-note, .canvas-hint { display: none; }
+  .shortcut-note, .canvas-hint { display: none; }
   .quiet-button span { display: none; }
 }
 @media (max-width: 800px) {
@@ -474,7 +464,7 @@ form .primary-button { margin-top: 1.4rem; }
   .header-actions { gap: .35rem; }
   .segmented button { padding: .35rem .45rem; }
   .main-content { padding: 1.25rem 1rem; }
-  .page-intro h1 { font-size: 1.7rem; }
+  .page-intro h1 { font-size: 1.35rem; }
   .page-intro p { font-size: var(--fs-md); }
   .mode-switch { width: 100%; }
   .mode-switch button { flex: 1; justify-content: center; }
