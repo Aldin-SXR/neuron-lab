@@ -41,7 +41,6 @@ export default function App() {
   return <ShellContext.Provider value={{ openGuide, arch, textScale: textSize }}>
     <header className="app-header">
       <a className="brand" href="./" aria-label={t.app.home}><span className="brand-mark"><NetworkIcon size={22}/></span><span>neuron<span className="brand-light">lab</span><span className="brand-period">.</span></span></a>
-      <div className="header-center"><span className="header-divider"/>{t.app.tagline}</div>
       <div className="header-actions">
         <div className="segmented lang-switch" role="group" aria-label={t.app.language} data-tour="language">
           {(Object.keys(LANGUAGES) as Lang[]).map(l => <button key={l} aria-pressed={lang === l} className={lang === l ? 'active' : ''} onClick={() => setLang(l)} title={LANGUAGES[l].langName} lang={l}>{LANGUAGES[l].langShort}</button>)}
