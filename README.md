@@ -1,6 +1,6 @@
 # Neuron Lab
 
-A browser-based neural network playground for university beginners. This first release implements feedforward ANNs end to end. CNN, RNN, and LSTM are explicitly marked as planned in the interface.
+A browser-based neural network playground for university beginners. Four architectures are implemented end to end, each with exact, explicit gradients and a step-by-step Learn mode: feedforward ANN, CNN, RNN, and LSTM. The interface is available in English and Bosnian.
 
 ## Run
 
@@ -20,16 +20,35 @@ npm test             # Numerical gradient and training tests
 npm run test:browser # Chromium user-flow tests; manages its own dev server
 ```
 
-If Chromium is not installed, run `npx playwright install chromium` before browser tests.
+If Chromium is not installed, run `npx playwright install chromium` before browser tests. To use an existing Chromium binary instead, set `CHROMIUM_PATH=/path/to/chromium`.
 
 ## Explore
 
-- **Learn:** step through each neuron's forward calculation, the sample loss, each neuron's backward gradient, and each individual weight/bias update. Play, pause, change speed, or move backward and forward through recorded states.
-- **Train:** train one epoch per step/tick using stochastic gradient descent. Switching from a partially completed lesson finishes its pending updates before training the epoch. Thus the first epoch count may be fractional.
-- **Inspect:** select any neuron or connection for formulas with its actual numbers. Blue input neurons, purple hidden neurons, and green output neurons show activations. Positive and negative connections use different colors; thickness represents weight magnitude.
-- **Edit:** add/remove hidden layers and neurons, choose each layer's activation, or edit individual weights and biases from the inspector. Architecture changes reset training; direct parameter edits preserve the other current weights. Inputs are fixed by the selected task (two features). Output layers support one score or two class scores. The visualization supports up to six hidden layers with twelve neurons each.
-- **Examples:** XOR, a circular 2D classification boundary, and a diagonal 2D classification boundary. Selecting an example cancels only the current sample's partial updates; completed training remains intact. That selection can itself be undone.
-- **Save:** store the current network, weights, random seed, and learning rate in this browser. Restore starts a fresh history at the saved weights. Saves are local; no account or backend is used. Fonts are bundled locally.
+- **First visit:** a welcome dialog offers a language choice and a one-minute guided tour that spotlights each part of the interface. The tour and the guide can be reopened from the header at any time.
+- **Language and text size:** switch between English (EN) and Bosnian (BS) in the header. The choice is remembered, and the page's `lang` attribute follows it. The A−/A+ control scales all text (100%, 112.5%, 125%).
+- **Learn:** step through every calculation of one example: forward pass, loss, backpropagation, then the parameter updates. “Next step”, “Back” (exact undo), and “Play” are labeled buttons; ← / → / space work as keyboard shortcuts. A hint under each step says what to do next.
+- **Train:** train one epoch per step/tick using stochastic gradient descent. Switching from a partially completed lesson finishes its pending updates before training the epoch, so the first epoch count may be fractional.
+- **Inspect:** click any neuron, connection, feature-map cell, filter, or time step to see its formula with the actual numbers.
+- **Save:** each architecture saves its own network, weights, settings, and learning rate in this browser. Restore starts a fresh history at the saved weights. No account or backend is used, and fonts are bundled locally.
+
+### ANN (feedforward)
+
+- XOR, a circular 2D classification boundary, and a diagonal 2D boundary. Selecting a problem also selects its recommended learning rate (0.3 for XOR, 0.1 for the 2D problems).
+- Add/remove hidden layers (up to 6) and neurons (up to 12), choose each layer's activation, or edit a neuron's weights and bias directly. Learn mode updates one weight or bias per step.
+
+### CNN (images)
+
+- 6×6 grayscale images: *lines* (horizontal, vertical, diagonal; 24 images) or *shapes* (plus, X, square in all 16 positions; 48 images), with reproducible noise.
+- 1–4 filters of 3×3 (stride 1, no padding) → ReLU or tanh → 2×2 max or average pooling → dense layer → softmax over 3 classes.
+- Clicking a feature-map cell highlights its 3×3 receptive field in the input. During backpropagation the view switches to gradients, and max-pooling winners are marked. Learn mode updates one filter or one class's dense weights per step.
+- A gallery shows each training image with its current prediction. “Draw your own” lets learners paint a 6×6 image and see the network's probabilities.
+
+### RNN and LSTM (sequences)
+
+- *Predict the next letter* of any word the learner types (3–12 letters, 2–8 distinct letters; default “hello”). Repeated letters with different successors require memory. “Let it write” feeds the network's own greedy predictions back in.
+- *Remember the first bit* in a 0/1 sequence of length 2–8. All sequences are enumerated up to length 5; longer lengths use 32 reproducible sequences balanced by first bit. The answer is needed only at the last step.
+- The network is shown unrolled in time: prediction probabilities, LSTM gates (f, i, o) and cell state, hidden state, input, and, during backpropagation through time, the size of ‖∂L/∂h‖ at each step.
+- 1–8 hidden units. Learn mode updates one parameter group per step: the RNN's input weights, recurrent weights, and output weights; the LSTM's forget, input, candidate, and output gates, then its output weights.
 
 ## The math
 
@@ -66,19 +85,43 @@ Half squared error is used consistently for all activations. With two outputs, l
 
 Random initialization and 2D datasets are reproducible. Computations use double precision; displayed values are rounded. Learn mode freezes the sample's learning rate for all its updates, including after undo. Undo retains the most recent 500 frames; the chart retains 400 measurements. Learn frames preserve the original sample's calculations as updates proceed. Train frames show activations for the next sample at the latest trained weights. Divergent/nonfinite weights pause training with a reset option.
 
+### CNN, RNN, and LSTM
+
+These engines (`src/cnn.ts`, `src/sequence.ts`) share the lesson and training machinery in `src/lab.ts`. They use softmax with cross-entropy, so the gradient of each output score is `p − y`.
+
+```text
+CNN:   z[k](r,c) = Σ_uv W[k](u,v) x(r+u, c+v) + b[k];  a = f(z);  p = pool2x2(a)
+       max pooling routes each gradient to the winning cell; average pooling shares it equally
+       dL/dW[k](u,v) = Σ_rc dL/dz[k](r,c) · x(r+u, c+v)
+RNN:   h_t = tanh(Wx x_t + Wh h_{t-1} + b);  y_t = softmax(Wy h_t + by)
+LSTM:  f, i, o = σ(W· [x_t, h_{t-1}] + b);  g = tanh(Wg [x_t, h_{t-1}] + bg)
+       c_t = f ⊙ c_{t-1} + i ⊙ g;  h_t = o ⊙ tanh(c_t)
+Loss (sequences) = mean over time steps that have a target of −log p_t(target)
+```
+
+Backpropagation through time sums each weight's gradient over all time steps, with no gradient clipping. The LSTM forget-gate bias starts at 1. Divergent/nonfinite parameters pause training with a reset option.
+
 ## Verification
 
-Engine tests compare every weight and bias derivative against central finite differences for all hidden/output activation combinations, verify exact parameter updates and immutable prior frames, check XOR/circle convergence, and check transitions from a partially completed lesson into training.
+`npm test` runs the engine tests:
 
-Browser tests exercise Learn/Train, exact weight undo/redo, save/restore, architecture edits, manual parameter edits, softmax, 2D selection, planned architecture explanations, the guide dialog, and mobile layout. They fail on console errors or failed network requests and save screenshots under `test-results/`.
+- **Gradient checks:** every analytical derivative is compared against a central finite difference. This covers all ANN activation combinations, CNN with both activations and both pooling types, and RNN/LSTM on both sequence tasks.
+- **Lesson updates:** each lesson step must change exactly its highlighted parameters, by the stored gradients, without mutating earlier frames.
+- **Convergence:** XOR, the circle, both CNN problems, and both sequence tasks must learn.
+- **Partial lessons:** switching from a partial lesson to training must first finish its pending updates.
+- **Translation:** the Bosnian dictionary must have the same structure as the English one, with no empty text and correct plural forms.
 
-## Next architecture milestones
+`npm run test:browser` runs Chromium user flows. They cover:
 
-1. CNN: small digit images, convolution kernels, feature maps, pooling, and filter gradients.
-2. RNN: small sequence tasks, unrolled time steps, hidden state, and backpropagation through time.
-3. LSTM: input/forget/output gates, cell state, and gate-specific gradient inspection.
+- Learn/Train, exact undo/redo, and save/restore.
+- ANN architecture and parameter edits, and softmax.
+- A CNN lesson through the filter updates, then training and the drawing pad.
+- RNN learning and writing back a custom word.
+- LSTM in Bosnian, including language persistence.
+- The welcome dialog, guided tour, guide, and text size.
+- Mobile layout for all four networks.
 
-The current release does not implement these architectures or image/sequence datasets. Their buttons explain this scope and do not substitute an ANN simulation.
+The tests fail on console errors or failed network requests and save screenshots under `test-results/`.
 
 ## Documentation consulted
 

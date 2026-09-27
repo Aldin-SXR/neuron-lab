@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { ACTIVATIONS, DEFAULT_SPECS, createFrame, createNetwork, dataset, metrics, step, trace, trainEpoch } from './engine';
+import { ACTIVATIONS, DEFAULT_SPECS, RECOMMENDED_RATE, createFrame, createNetwork, dataset, metrics, step, trace, trainEpoch } from './engine';
 
 test('every activation has correct weight and bias gradients, including the softmax Jacobian', () => {
   for (const activation of ACTIVATIONS) {
@@ -54,7 +54,7 @@ test('default ANN learns XOR and the nonlinear circle dataset with actual SGD', 
     const data = dataset(problem);
     let frame = createFrame(createNetwork(DEFAULT_SPECS), data);
     const initialLoss = frame.metric.loss;
-    for (let epoch = 0; epoch < (problem === 'xor' ? 1500 : 400); epoch++) frame = trainEpoch(frame, data, 0.3);
+    for (let epoch = 0; epoch < (problem === 'xor' ? 1500 : 400); epoch++) frame = trainEpoch(frame, data, RECOMMENDED_RATE[problem]);
     assert.ok(frame.metric.loss < initialLoss / 3, `${problem} loss: ${frame.metric.loss}`);
     assert.ok(frame.metric.accuracy >= 0.95, `${problem} accuracy: ${frame.metric.accuracy}`);
     assert.equal(frame.metric.epoch, problem === 'xor' ? 1500 : 400);
