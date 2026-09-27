@@ -1,11 +1,14 @@
 import { format, type Frame } from './engine';
 import { useI18n } from './i18n';
-import { ZoomControls, useZoom } from './ui';
+import { useContext } from 'react';
+import { ShellContext, ZoomControls, useZoom } from './ui';
 
 export interface Selection { layer: number; neuron: number; input?: number; bias?: boolean }
 export function NetworkView({ frame, selection, onSelect, training }: { frame: Frame; selection: Selection | null; onSelect: (s: Selection) => void; training: boolean }) {
   const { t } = useI18n();
   const zoom = useZoom();
+  // The text-size setting enlarges the whole diagram so its labels grow with the rest of the page.
+  const scale = zoom.zoom * useContext(ShellContext).textScale;
   const event = frame.plan[frame.cursor];
   const sizes = [2, ...frame.network.layers.map(l => l.size)];
   const width = Math.max(640, sizes.length * 170);
@@ -19,7 +22,7 @@ export function NetworkView({ frame, selection, onSelect, training }: { frame: F
   const keyActivate = (e: React.KeyboardEvent, action: () => void) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); action(); } };
   return <div className="network-stage" data-tour="network">
     <div className="network-scroll">
-      <svg className={`network-svg phase-${training ? 'train' : event.phase}`} viewBox={`0 0 ${width} ${height}`} style={{ width: `${zoom.zoom * 100}%`, minWidth: width * zoom.zoom, height: height * zoom.zoom }} role="group" aria-label={t.ann.svgLabel}>
+      <svg className={`network-svg phase-${training ? 'train' : event.phase}`} viewBox={`0 0 ${width} ${height}`} style={{ width: `${zoom.zoom * 100}%`, minWidth: width * scale, height: height * scale }} role="group" aria-label={t.ann.svgLabel}>
         {sizes.map((size, l) => <g key={`label-${l}`}><text x={position(l, 0).x} y="30" className="layer-label">{t.ann.layerLabel(l, l === sizes.length - 1)}</text><text x={position(l, 0).x} y="50" className="layer-sublabel">{l === 0 ? t.ann.features : frame.network.layers[l - 1].activation}</text><text x={position(l, 0).x} y={height - 14} className="layer-sublabel">{t.ann.neuronCount(size)}</text></g>)}
         {frame.network.layers.map((layer, l) => layer.weights.map((row, j) => row.map((weight, i) => {
           const from = position(l, i), to = position(l + 1, j);

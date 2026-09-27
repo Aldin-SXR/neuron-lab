@@ -1,18 +1,18 @@
 import { useRef, useState } from 'react';
 import { Check, FlaskConical, MousePointer2, Plus, Trash2 } from 'lucide-react';
-import { ACTIVATIONS, DEFAULT_SPECS, RECOMMENDED_RATE, createFrame, createNetwork, dataset, format, parameterCount, step, trainEpoch, type Activation, type LayerSpec, type Network, type Problem } from './engine';
+import { ACTIVATIONS, DEFAULT_SPECS, RECOMMENDED_RATE, createFrame, createNetwork, dataset, parameterCount, step, trainEpoch, type Activation, type LayerSpec, type Network, type Problem } from './engine';
 import { NetworkView, type Selection } from './NetworkView';
 import { Inspector } from './Inspector';
 import { DataView } from './Charts';
 import { useI18n } from './i18n';
 import { useTimeline } from './useTimeline';
-import { Dialog, LabLayout, LearningSettings, NetworkHeading, PhaseTrack, PlaybackBar, ProblemHeader, ResultsCard, Section, SelectField, StepGuide, Stepper, useFrameSelection, useSaved, type LabProps } from './ui';
+import { Dialog, ErrorBanner, LabLayout, LearningSettings, NetworkHeading, PhaseTrack, PlaybackBar, ProblemHeader, ResultsCard, Section, SelectField, StepGuide, Stepper, useFrameSelection, useSaved, type LabProps } from './ui';
 
 const PROBLEMS: Problem[] = ['xor', 'circle', 'diagonal'];
 const STORAGE_KEY = 'neuron-lab-experiment';
 
 export function AnnLab({ active, picker, notify }: LabProps) {
-  const { t } = useI18n();
+  const { t, num, listSep } = useI18n();
   const T = t.ann;
   const [specs, setSpecs] = useState<LayerSpec[]>(DEFAULT_SPECS);
   const [problem, setProblem] = useState<Problem>('xor');
@@ -54,9 +54,9 @@ export function AnnLab({ active, picker, notify }: LabProps) {
   const sample = data.current[frame.sampleIndex];
   const S = T.step;
   const [title, text] = mode === 'train' ? [S.trainTitle, S.trainText(data.current.length)]
-    : event.phase === 'input' ? [S.inputTitle, S.inputText(sample.x.map(v => format(v, 2)).join(', '), sample.y)]
+    : event.phase === 'input' ? [S.inputTitle, S.inputText(sample.x.map(v => num(v, 2)).join(listSep), sample.y)]
     : event.phase === 'forward' ? [S.forwardTitle(event.layer! + 1, event.neuron! + 1), S.forwardText]
-    : event.phase === 'loss' ? [S.lossTitle, S.lossText(format(frame.trace.loss, 6))]
+    : event.phase === 'loss' ? [S.lossTitle, S.lossText(num(frame.trace.loss, 6))]
     : event.phase === 'backward' ? [S.backwardTitle(event.layer! + 1, event.neuron! + 1), S.backwardText]
     : [S.updateTitle(event.bias ? S.bias : S.weight(event.input! + 1), event.layer! + 1, event.neuron! + 1), S.updateText];
   const output = specs.at(-1)!;
@@ -93,7 +93,7 @@ export function AnnLab({ active, picker, notify }: LabProps) {
       </section>
       <Inspector frame={frame} selection={selection} rate={frame.learningRate ?? rate} onEdit={s => { controls.setPlaying(false); setEditing(s); }}/>
     </div>
-    {controls.timeline.error && <div className="error-banner" role="alert">{t.common.diverged}<button onClick={() => reset()}>{t.common.resetNetwork}</button></div>}
+    <ErrorBanner controls={controls} onReset={() => reset()}/>
     <div className="results-grid" data-tour="results">
       <section className="card data-card"><div className="panel-heading"><h2>{problem === 'xor' ? T.data.table : T.data.boundary}</h2><span className="small-chip">{t.common.examples(data.current.length)}</span></div><DataView frame={frame} data={data.current} problem={problem} onSample={chooseSample}/><div className="data-footer"><MousePointer2 size={14}/>{problem === 'xor' ? T.data.clickXor : T.data.pointsNote}</div></section>
       <ResultsCard frame={frame}/>

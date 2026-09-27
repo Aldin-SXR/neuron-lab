@@ -18,21 +18,27 @@ export default function App() {
   const [visited, setVisited] = useState<Set<Architecture>>(() => new Set([arch]));
   const [modal, setModal] = useState<'welcome' | 'guide' | null>(() => stored('neuron-lab-welcomed') ? null : 'welcome');
   const [touring, setTouring] = useState(false);
-  const [toast, setToast] = useState('');
+  // Each notification gets its own id so repeating the same message restarts its timer.
+  const [toast, setToast] = useState<{ text: string; id: number } | null>(null);
+  const notify = useCallback((text: string) => setToast(previous => ({ text, id: (previous?.id ?? 0) + 1 })), []);
   const [textSize, setTextSize] = useState(() => { const v = Number(stored('neuron-lab-text-size')); return TEXT_SIZES.includes(v) ? v : 1; });
-  useEffect(() => { document.documentElement.style.fontSize = `${textSize * 100}%`; store('neuron-lab-text-size', String(textSize)); }, [textSize]);
+  useEffect(() => {
+    document.documentElement.style.fontSize = `${textSize * 100}%`;
+    document.documentElement.style.setProperty('--text-scale', String(textSize));
+    store('neuron-lab-text-size', String(textSize));
+  }, [textSize]);
   useEffect(() => {
     if (!toast) return;
-    const timeout = setTimeout(() => setToast(''), 4500);
+    const timeout = setTimeout(() => setToast(null), 4500);
     return () => clearTimeout(timeout);
   }, [toast]);
   function choose(a: Architecture) { setArch(a); setVisited(v => new Set(v).add(a)); store('neuron-lab-arch', a); }
   function closeWelcome(tour: boolean) { store('neuron-lab-welcomed', '1'); setModal(null); if (tour) setTouring(true); }
   const openGuide = useCallback(() => setModal('guide'), []);
   const picker = <ArchitecturePicker value={arch} onChange={choose}/>;
-  const props = (a: Architecture) => ({ active: arch === a, picker, notify: setToast });
+  const props = (a: Architecture) => ({ active: arch === a, picker, notify });
   const sizeIndex = TEXT_SIZES.indexOf(textSize);
-  return <ShellContext.Provider value={{ openGuide, arch }}>
+  return <ShellContext.Provider value={{ openGuide, arch, textScale: textSize }}>
     <header className="app-header">
       <a className="brand" href="./" aria-label={t.app.home}><span className="brand-mark"><NetworkIcon size={22}/></span><span>neuron<span className="brand-light">lab</span><span className="brand-period">.</span></span></a>
       <div className="header-center"><span className="header-divider"/>{t.app.tagline}</div>
@@ -52,7 +58,7 @@ export default function App() {
     {visited.has('cnn') && <CnnLab {...props('cnn')}/>}
     {visited.has('rnn') && <SeqLab kind="rnn" {...props('rnn')}/>}
     {visited.has('lstm') && <SeqLab kind="lstm" {...props('lstm')}/>}
-    {toast && <div className="toast" role="status"><Check size={18}/>{toast}<button aria-label={t.app.dismiss} onClick={() => setToast('')}><X size={16}/></button></div>}
+    {toast && <div className="toast" role="status"><Check size={18}/>{toast.text}<button aria-label={t.app.dismiss} onClick={() => setToast(null)}><X size={16}/></button></div>}
     {touring && <Tour onClose={() => setTouring(false)}/>}
     <Dialog open={modal === 'welcome'} onClose={() => closeWelcome(false)} label={t.welcome.title} className="welcome-modal">
       <span className="modal-symbol"><NetworkIcon size={26}/></span>
@@ -70,7 +76,7 @@ export default function App() {
       <p>{t.guide.intro}</p>
       <ol className="guide-steps">{t.guide.steps.map(([b, text], i) => <li key={i}><strong>{b}</strong> {text}</li>)}</ol>
       <h3 className="modal-subtitle">{t.guide.architectures}</h3>
-      <div className="roadmap-list">{ARCHITECTURES.map(a => { const Icon = ARCH_ICONS[a]; return <button key={a} className={arch === a ? 'current' : ''} onClick={() => { choose(a); setModal(null); }}><span className="roadmap-tag"><Icon size={18}/>{t.arch[a].name}</span><div><b>{t.arch[a].long}</b><p>{t.arch[a].description}</p></div></button>; })}</div>
+      <div className="roadmap-list">{ARCHITECTURES.map(a => { const Icon = ARCH_ICONS[a]; return <button key={a} className={arch === a ? 'current' : ''} onClick={() => { choose(a); setModal(null); }}><span className="roadmap-tag"><Icon size={18}/>{t.arch[a].name}</span><span className="roadmap-text"><b>{t.arch[a].long}</b><span>{t.arch[a].description}</span></span></button>; })}</div>
       <h3 className="modal-subtitle">{t.glossary.title}</h3>
       <div className="guide-glossary">{t.glossary.items.map(([term, text]) => <div key={term}><b>{term}</b><span>{text}</span></div>)}</div>
       <p className="fine-print">{arch === 'ann' ? t.ann.fine : arch === 'cnn' ? t.cnn.fine : t.seq.fine} {t.guide.fine}</p>

@@ -1,10 +1,16 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
-import type { LabFrame } from './lab';
+import { DivergedError, type LabFrame } from './lab';
 
 export type Mode = 'learn' | 'train';
 export interface Timeline<F> { past: F[]; present: F; future: F[]; error?: string }
 interface Operations<F> { step: (frame: F, rate: number) => F; epoch: (frame: F, rate: number) => F }
 const HISTORY = 500;
+/** Parameters that blow up are an expected teaching moment; anything else is a real bug worth logging. */
+function failure(error: unknown) {
+  if (error instanceof DivergedError) return 'diverged';
+  console.error(error);
+  return 'unexpected';
+}
 
 /**
  * Undoable playback shared by every lab: stepping, training epochs, autoplay,
@@ -23,7 +29,7 @@ export function useTimeline<F extends LabFrame>(initial: () => F, operations: Op
       try {
         const next = mode === 'learn' ? ops.current.step(t.present, rate) : ops.current.epoch(t.present, rate);
         return { past: [...t.past, t.present].slice(-HISTORY), present: next, future: [] };
-      } catch { return { ...t, error: 'diverged' }; }
+      } catch (error) { return { ...t, error: failure(error) }; }
     });
   }, [mode, rate]);
   useEffect(() => {
@@ -45,7 +51,7 @@ export function useTimeline<F extends LabFrame>(initial: () => F, operations: Op
       try {
         const frame = mode === 'learn' ? ops.current.step(t.present, rate) : ops.current.epoch(t.present, rate);
         return { past: [...t.past, t.present].slice(-HISTORY), present: frame, future: [] };
-      } catch { return { ...t, error: 'diverged' }; }
+      } catch (error) { return { ...t, error: failure(error) }; }
     });
   }, [mode, rate]);
   const togglePlay = useCallback(() => setPlaying(v => !v), []);

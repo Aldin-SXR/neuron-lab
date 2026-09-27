@@ -27,6 +27,15 @@ export function Tour({ onClose }: { onClose: () => void }) {
   }, [measure]);
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
+      if (e.key === 'Tab' && card.current) {
+        // Keep keyboard focus inside the tour card while the page behind is dimmed.
+        const focusable = [...card.current.querySelectorAll<HTMLElement>('button')];
+        const at = focusable.indexOf(document.activeElement as HTMLElement);
+        const next = e.shiftKey ? (at <= 0 ? focusable.length - 1 : at - 1) : (at + 1) % focusable.length;
+        e.preventDefault(); e.stopPropagation();
+        focusable[next]?.focus();
+        return;
+      }
       if (e.key === 'Escape') { e.preventDefault(); onClose(); }
       else if (e.key === 'ArrowRight') { e.preventDefault(); if (index < STEPS.length - 1) setIndex(index + 1); else onClose(); }
       else if (e.key === 'ArrowLeft') { e.preventDefault(); setIndex(Math.max(0, index - 1)); }

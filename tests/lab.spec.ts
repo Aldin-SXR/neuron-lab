@@ -124,7 +124,7 @@ test('CNN: convolve, pool, backpropagate into filters, undo, train, and draw an 
   await expect.poll(async () => parseFloat((await lab(page).getByTestId('accuracy').textContent())!)).toBeGreaterThanOrEqual(90);
   await page.getByRole('tab', { name: 'Draw your own' }).click();
   for (const column of [1, 2, 3, 4, 5, 6]) await page.getByRole('button', { name: `Toggle pixel row 3, column ${column}` }).click();
-  await expect(page.locator('.draw-result .is-target .class-name')).toHaveText('Horizontal');
+  await expect(page.locator('.draw-result .is-top .class-name')).toHaveText('Horizontal');
   await lab(page).getByLabel('Pick a problem').selectOption('shapes');
   await expect(page.getByRole('heading', { name: 'Recognize the shape' })).toBeVisible();
   await expect(lab(page).getByTestId('epoch')).toHaveText('0');
@@ -164,6 +164,8 @@ test('LSTM in Bosnian: switch language, remember the first bit, and keep prefere
   await page.getByRole('radio', { name: /LSTM/ }).click();
   await lab(page).getByLabel('Odaberi problem').selectOption('memory');
   await expect(page.getByRole('heading', { name: 'Zapamti prvi bit' })).toBeVisible();
+  // Move focus off the controls (arrow keys there navigate the control) so the lesson shortcuts apply.
+  await lab(page).locator('h1').click();
   await page.keyboard.press('ArrowRight');
   await page.keyboard.press('ArrowRight');
   await expect(page.getByText('Kapije na djelu.')).toBeVisible();
@@ -216,7 +218,51 @@ test('mobile layout stays within the viewport for every network', async ({ page 
     await stepForward(page);
     await expect(lab(page).getByTestId('step-number')).toHaveText('2');
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth), arch).toBe(true);
+    await expect(page.getByRole('button', { name: 'Larger text' })).toBeVisible();
     await page.screenshot({ path: `test-results/neuron-lab-mobile-${arch.toLowerCase()}.png`, fullPage: true });
   }
+  expect(errors).toEqual([]);
+});
+
+test('keyboard, labels, notifications, and localized numbers behave consistently across labs', async ({ page }) => {
+  const errors = trackErrors(page);
+  await open(page);
+  // Arrow keys move through the network picker without advancing the lesson.
+  await page.getByRole('radio', { name: /ANN/ }).focus();
+  await page.keyboard.press('ArrowRight');
+  await expect(page.getByRole('heading', { name: 'Which way does the line go?' })).toBeVisible();
+  await expect(page.getByRole('radio', { name: /CNN/ })).toBeFocused();
+  await expect(lab(page).getByTestId('step-number')).toHaveText('1');
+  await page.keyboard.press('ArrowRight');
+  await page.keyboard.press('ArrowRight');
+  await expect(page.getByRole('radio', { name: /LSTM/ })).toHaveAttribute('aria-checked', 'true');
+  // Every mounted lab has unique element ids, so labels reach their own controls.
+  expect(await page.evaluate(() => { const ids = [...document.querySelectorAll('[id]')].map(e => e.id); return ids.filter((id, i) => ids.indexOf(id) !== i); })).toEqual([]);
+  await lab(page).locator('label', { hasText: 'Learning rate' }).click();
+  await expect(lab(page).getByRole('slider', { name: 'Learning rate' })).toBeFocused();
+  await page.getByRole('button', { name: 'Remove a hidden unit' }).click();
+  await page.getByRole('button', { name: 'Remove a hidden unit' }).click();
+  await page.getByRole('button', { name: 'Remove a hidden unit' }).click();
+  await expect(lab(page).locator('.network-heading p')).toContainText('1 hidden unit·');
+  // CNN tabs respond to arrow keys too.
+  await page.getByRole('radio', { name: /CNN/ }).click();
+  await page.getByRole('tab', { name: 'Gallery' }).focus();
+  await page.keyboard.press('ArrowRight');
+  await expect(page.getByRole('tab', { name: 'Draw your own' })).toHaveAttribute('aria-selected', 'true');
+  // Repeating the same notification restarts its timer.
+  await page.getByRole('tab', { name: 'Gallery' }).click();
+  await page.getByRole('button', { name: /^Inspect image 2,/ }).click();
+  await page.waitForTimeout(3000);
+  await page.getByRole('button', { name: /^Inspect image 3,/ }).click();
+  await page.waitForTimeout(2500);
+  await expect(page.locator('.toast')).toBeVisible();
+  // Bosnian uses a decimal comma in metrics and prose.
+  await page.getByRole('group', { name: 'Language' }).getByRole('button', { name: 'BS' }).click();
+  await expect(lab(page).getByTestId('loss')).toHaveText(/^\d+,\d{4}$/);
+  // Tab stays inside the tour card.
+  await page.getByRole('button', { name: 'Kreni u obilazak' }).click();
+  for (let i = 0; i < 6; i++) await page.keyboard.press('Tab');
+  expect(await page.evaluate(() => Boolean(document.activeElement?.closest('.tour-card')))).toBe(true);
+  await page.keyboard.press('Escape');
   expect(errors).toEqual([]);
 });

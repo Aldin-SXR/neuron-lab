@@ -28,18 +28,25 @@ export function sequenceTask(problem: SeqProblem, word = DEFAULT_WORD, length = 
     const ids = [...word].map(ch => symbols.indexOf(ch));
     return { problem, symbols, word, data: [{ x: ids.slice(0, -1), y: ids.slice(1) }] };
   }
-  const rng = random(90 + length);
-  const count = Math.min(2 ** length, 32);
-  const data = Array.from({ length: count }, (_, n) => {
-    // Enumerate every sequence while there are at most 32; otherwise sample reproducibly, balancing the first bit.
-    const x = count === 2 ** length ? Array.from({ length }, (_, t) => (n >> (length - 1 - t)) & 1) : [n % 2, ...Array.from({ length: length - 1 }, () => Number(rng() < 0.5))];
-    return { x, y: x.map((_, t) => t === length - 1 ? x[0] : null) };
-  });
+  // Enumerate every sequence while there are at most 32; otherwise sample 32 distinct ones
+  // reproducibly, alternating the first bit so both answers are equally common.
+  const bits = (n: number) => Array.from({ length }, (_, t) => (n >> (length - 1 - t)) & 1);
+  let codes = Array.from({ length: 2 ** length }, (_, n) => n);
+  if (codes.length > 32) {
+    const rng = random(90 + length), half = 2 ** (length - 1), chosen = new Set<number>();
+    for (let n = 0; chosen.size < 32; n = chosen.size) {
+      const code = (n % 2) * half + Math.floor(rng() * half);
+      if (!chosen.has(code)) chosen.add(code);
+    }
+    codes = [...chosen];
+  }
+  const data = codes.map(code => { const x = bits(code); return { x, y: x.map((_, t) => t === length - 1 ? x[0] : null) }; });
   return { problem, symbols: ['0', '1'], length, data };
 }
 /** Validates a word the learner typed: 3–12 letters with at most 8 distinct symbols. */
 export function cleanWord(input: string) {
-  const word = input.trim().toLowerCase();
+  // NFC joins letters typed as a base letter plus an accent mark (c + ˇ → č).
+  const word = input.normalize('NFC').trim().toLowerCase();
   return /^[\p{L}]{3,12}$/u.test(word) && new Set(word).size <= 8 && new Set(word).size >= 2 ? word : null;
 }
 

@@ -1,6 +1,5 @@
-import { createContext, useContext, useEffect, useRef, useState, type ReactNode } from 'react';
+import { createContext, useContext, useEffect, useId, useRef, useState, type KeyboardEvent, type ReactNode } from 'react';
 import { ArrowDown, ArrowRight, BookOpen, Check, ChevronDown, CircleHelp, Cpu, GitBranch, Image as ImageIcon, Lightbulb, Minus, Network as NetworkIcon, Pause, Play, Plus, Repeat, RotateCcw, Save, SkipBack, SkipForward, X, Zap } from 'lucide-react';
-import { format } from './engine';
 import type { LabFrame, Metric, Phase } from './lab';
 import { useI18n } from './i18n';
 import type { Mode, PlaybackControls } from './useTimeline';
@@ -13,13 +12,38 @@ export const PHASES: { id: Phase; icon: typeof ArrowRight }[] = [
 ];
 export interface LabProps { active: boolean; picker: ReactNode; notify: (message: string) => void }
 
+/**
+ * Arrow-key navigation for a group of mutually exclusive buttons (radios or tabs):
+ * choose the neighbour and move focus to it. Handled keys never reach the lesson shortcuts.
+ */
+export function rovingKeys<T>(options: T[], value: T, choose: (v: T) => void) {
+  return (e: KeyboardEvent<HTMLElement>) => {
+    const step = e.key === 'ArrowRight' || e.key === 'ArrowDown' ? 1 : e.key === 'ArrowLeft' || e.key === 'ArrowUp' ? -1 : 0;
+    const index = e.key === 'Home' ? 0 : e.key === 'End' ? options.length - 1 : step ? (options.indexOf(value) + step + options.length) % options.length : -1;
+    if (index < 0) return;
+    e.preventDefault();
+    choose(options[index]);
+    const buttons = e.currentTarget.querySelectorAll<HTMLElement>('[role=radio], [role=tab]');
+    buttons[index]?.focus();
+  };
+}
+/** Set when the picker itself switched labs, so the newly shown lab's picker takes over focus. */
+let pickerHadFocus = false;
 export function ArchitecturePicker({ value, onChange }: { value: Architecture; onChange: (a: Architecture) => void }) {
   const { t } = useI18n();
+  const group = useRef<HTMLDivElement>(null);
+  // Each lab renders its own picker; the one that was used is about to be hidden.
+  const choose = (a: Architecture) => { if (a !== value) { pickerHadFocus = true; onChange(a); } };
+  useEffect(() => {
+    if (!pickerHadFocus || group.current?.closest<HTMLElement>('.lab')?.hidden !== false) return;
+    pickerHadFocus = false;
+    group.current.querySelector<HTMLElement>('[aria-checked=true]')?.focus();
+  }, [value]);
   return <section className="config-section" data-tour="architecture">
     <div className="section-label"><span className="section-number" aria-hidden>1</span>{t.arch.title}</div>
-    <div className="model-grid" role="radiogroup" aria-label={t.arch.title}>{ARCHITECTURES.map(a => {
+    <div className="model-grid" role="radiogroup" aria-label={t.arch.title} ref={group} onKeyDown={rovingKeys(ARCHITECTURES, value, choose)}>{ARCHITECTURES.map(a => {
       const Icon = ARCH_ICONS[a];
-      return <button key={a} role="radio" aria-checked={value === a} className={`model-button ${value === a ? 'active' : ''}`} onClick={() => onChange(a)} title={t.arch[a].description}>
+      return <button key={a} role="radio" aria-checked={value === a} tabIndex={value === a ? 0 : -1} className={`model-button ${value === a ? 'active' : ''}`} onClick={() => choose(a)} title={t.arch[a].description}>
         <Icon size={20}/><span className="model-name">{t.arch[a].name}</span><small>{t.arch[a].short}</small>
       </button>;
     })}</div>
@@ -30,7 +54,7 @@ export function Section({ number, label, htmlFor, tour, className = '', children
   const Label = htmlFor ? 'label' : 'div';
   return <section className={`config-section ${className}`} data-tour={tour}><Label className="section-label" htmlFor={htmlFor}><span className="section-number" aria-hidden>{number}</span>{label}</Label>{children}</section>;
 }
-export const ShellContext = createContext<{ openGuide: () => void; arch: Architecture }>({ openGuide: () => {}, arch: 'ann' });
+export const ShellContext = createContext<{ openGuide: () => void; arch: Architecture; textScale: number }>({ openGuide: () => {}, arch: 'ann', textScale: 1 });
 export function LabLayout({ active, picker, sidebar, children, id }: { active: boolean; picker: ReactNode; sidebar: ReactNode; children: ReactNode; id: Architecture }) {
   const { t } = useI18n();
   const { openGuide } = useContext(ShellContext);
@@ -74,7 +98,7 @@ export function StepGuide({ phase, title, text, frame, mode }: { phase: Phase; t
   </div>;
 }
 export function PlaybackBar({ controls }: { controls: PlaybackControls }) {
-  const { t } = useI18n();
+  const { t, num } = useI18n();
   const { mode, playing, timeline, frame } = controls;
   const running = playing && !timeline.error;
   return <div className="playback-bar" data-tour="playback">
@@ -84,8 +108,17 @@ export function PlaybackBar({ controls }: { controls: PlaybackControls }) {
       <button className="play-button" onClick={controls.togglePlay} disabled={Boolean(timeline.error)} aria-label={running ? t.playback.pause : mode === 'learn' ? t.playback.playAria : t.playback.trainAria} title={`${running ? t.playback.pause : mode === 'learn' ? t.playback.play : t.playback.train} (space)`}>{running ? <Pause size={16} fill="currentColor"/> : <Play size={16} fill="currentColor"/>}<span>{running ? t.playback.pause : mode === 'learn' ? t.playback.play : t.playback.train}</span></button>
       <label className="speed-control" title={t.playback.speed}><span className="sr-only">{t.playback.speed}</span><select aria-label={t.playback.speed} value={controls.speed} onChange={e => controls.setSpeed(Number(e.target.value))}><option value="0.5">0.5×</option><option value="1">1×</option><option value="2">2×</option><option value="4">4×</option></select></label>
     </div>
-    <span className="step-counter">{mode === 'learn' ? <>{t.playback.step} <strong data-testid="step-number">{frame.cursor + 1}</strong> {t.playback.of} {frame.plan.length}</> : <>{t.playback.epoch} <strong>{format(frame.metric.epoch, 1)}</strong></>}</span>
+    <span className="step-counter">{mode === 'learn' ? <>{t.playback.step} <strong data-testid="step-number">{frame.cursor + 1}</strong> {t.playback.of} {frame.plan.length}</> : <>{t.playback.epoch} <strong>{num(frame.metric.epoch, 1)}</strong></>}</span>
   </div>;
+}
+export function ErrorBanner({ controls, onReset }: { controls: PlaybackControls; onReset: () => void }) {
+  const { t } = useI18n();
+  const error = controls.timeline.error;
+  if (!error) return null;
+  return <div className="error-banner" role="alert"><span>{error === 'diverged' ? t.common.diverged : t.common.unexpected}</span><span className="banner-actions">
+    {controls.canGoBack && <button onClick={controls.back}><SkipBack size={15}/> {t.playback.back}</button>}
+    <button onClick={onReset}>{t.common.resetNetwork}</button>
+  </span></div>;
 }
 export function NetworkHeading({ title, stats, onReset, onSave, onRestore, hasSaved }: { title: string; stats: string[]; onReset: () => void; onSave: () => void; onRestore: () => void; hasSaved: boolean }) {
   const { t } = useI18n();
@@ -99,43 +132,45 @@ export function NetworkHeading({ title, stats, onReset, onSave, onRestore, hasSa
   </div>;
 }
 export function LearningSettings({ number, rate, onRate, locked, seed, onSeed, onRecommended }: { number: number; rate: number; onRate: (v: number) => void; locked: boolean; seed: number; onSeed: (v: number) => void; onRecommended: () => void }) {
-  const { t } = useI18n();
+  const { t, num } = useI18n();
+  const id = useId();
   return <Section number={number} label={t.sections.tune} className="learning-settings" tour="settings">
-    <div className="field-line"><label htmlFor={`rate-${number}`}>{t.common.learningRate} <span className="math-inline">η</span></label><output>{rate.toFixed(2)}</output></div>
-    <input id={`rate-${number}`} aria-label={t.common.learningRate} type="range" min="0.01" max="1" step="0.01" value={rate} disabled={locked} onChange={e => onRate(Number(e.target.value))}/>
+    <div className="field-line"><label htmlFor={`${id}-rate`}>{t.common.learningRate} <span className="math-inline">η</span></label><output>{num(rate, 2)}</output></div>
+    <input id={`${id}-rate`} aria-label={t.common.learningRate} type="range" min="0.01" max="1" step="0.01" value={rate} disabled={locked} onChange={e => onRate(Number(e.target.value))}/>
     <div className="range-labels"><span>{t.common.careful}</span><span>{t.common.adventurous}</span></div>
     <p className="field-help">{locked ? t.common.rateLocked : t.common.rateHelp}</p>
     <details className="advanced"><summary>{t.sections.advanced}</summary>
-      <div className="field-line seed-field"><label htmlFor={`seed-${number}`}>{t.common.seed}</label><input id={`seed-${number}`} aria-label={t.common.seed} type="number" min="0" max="99999" value={seed} onChange={e => { const v = Number(e.target.value); if (Number.isInteger(v) && v >= 0 && v <= 99999) onSeed(v); }}/></div>
+      <div className="field-line seed-field"><label htmlFor={`${id}-seed`}>{t.common.seed}</label><input id={`${id}-seed`} aria-label={t.common.seed} type="number" min="0" max="99999" value={seed} onChange={e => { const v = Number(e.target.value); if (Number.isInteger(v) && v >= 0 && v <= 99999) onSeed(v); }}/></div>
       <p className="field-help">{t.common.seedHelp}</p>
     </details>
     <button className="text-button recommended" onClick={onRecommended}><RotateCcw size={14}/> {t.common.recommended}</button>
   </Section>;
 }
 export function ResultsCard({ frame, accuracyLabel }: { frame: LabFrame; accuracyLabel?: string }) {
-  const { t } = useI18n();
+  const { t, num } = useI18n();
   return <section className="card loss-card" data-tour="results-loss">
     <div className="panel-heading"><h2>{t.common.lossTitle}</h2><span className="legend"><span className="tiny-dot purple"/> {t.common.trainingLoss}</span></div>
     <div className="metrics-row">
-      <div><span>{t.common.meanLoss}</span><strong data-testid="loss">{format(frame.metric.loss)}</strong></div>
+      <div><span>{t.common.meanLoss}</span><strong data-testid="loss">{num(frame.metric.loss)}</strong></div>
       <div><span>{accuracyLabel ?? t.common.accuracy}</span><strong className="accuracy" data-testid="accuracy">{Math.round(frame.metric.accuracy * 100)}<small>%</small></strong></div>
-      <div><span>{t.common.epoch}</span><strong data-testid="epoch">{format(frame.metric.epoch, frame.metric.epoch % 1 ? 2 : 0)}</strong></div>
+      <div><span>{t.common.epoch}</span><strong data-testid="epoch">{num(frame.metric.epoch, frame.metric.epoch % 1 ? 2 : 0)}</strong></div>
     </div>
     <LossChart history={frame.history} metric={frame.metric}/>
     <p className="card-note">{t.common.lossHelp}</p>
   </section>;
 }
 export function LossChart({ history, metric }: { history: Metric[]; metric: Metric }) {
-  const { t } = useI18n();
+  const { t, num } = useI18n();
+  const gradient = `loss-fill-${useId().replace(/:/g, '')}`;
   const max = Math.max(0.01, ...history.map(m => m.loss)) * 1.15;
   const points = history.map((m, i) => `${48 + i * 452 / Math.max(history.length - 1, 1)},${125 - m.loss / max * 102}`).join(' ');
-  return <div className="loss-plot"><svg viewBox="0 0 530 163" role="img" aria-label={t.common.lossAria(format(metric.loss), format(metric.epoch, 2))}>
-    {[0, 0.5, 1].map(r => <g key={r}><line x1="48" y1={125 - r * 102} x2="505" y2={125 - r * 102} className="grid-line"/><text x="40" y={129 - r * 102} className="chart-label" textAnchor="end">{(max * r).toFixed(2)}</text></g>)}
-    <defs><linearGradient id="lossFill" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor="#7c66d2" stopOpacity="0.22"/><stop offset="100%" stopColor="#7c66d2" stopOpacity="0"/></linearGradient></defs>
-    {history.length > 1 && <polygon points={`48,125 ${points} 500,125`} fill="url(#lossFill)"/>}
+  return <div className="loss-plot"><svg viewBox="0 0 530 163" role="img" aria-label={t.common.lossAria(num(metric.loss), num(metric.epoch, 2))}>
+    {[0, 0.5, 1].map(r => <g key={r}><line x1="48" y1={125 - r * 102} x2="505" y2={125 - r * 102} className="grid-line"/><text x="40" y={129 - r * 102} className="chart-label" textAnchor="end">{num(max * r, 2)}</text></g>)}
+    <defs> <linearGradient id={gradient} x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor="#7c66d2" stopOpacity="0.22"/><stop offset="100%" stopColor="#7c66d2" stopOpacity="0"/></linearGradient></defs>
+    {history.length > 1 && <polygon points={`48,125 ${points} 500,125`} fill={`url(#${gradient})`}/>}
     <polyline points={points} fill="none" stroke="#7057c8" strokeWidth="2.5" strokeLinejoin="round"/>
     {history.length === 1 && <circle cx="48" cy={125 - history[0].loss / max * 102} r="4" fill="#7057c8"/>}
-    <text x="48" y="152" className="chart-label">{format(history[0].epoch, 0)}</text><text x="500" y="152" className="chart-label" textAnchor="end">{format(history.at(-1)!.epoch, 1)}</text><text x="274" y="152" className="chart-label" textAnchor="middle">{t.common.epochs}</text>
+    <text x="48" y="152" className="chart-label">{num(history[0].epoch, 0)}</text><text x="500" y="152" className="chart-label" textAnchor="end">{num(history.at(-1)!.epoch, 1)}</text><text x="274" y="152" className="chart-label" textAnchor="middle">{t.common.epochs}</text>
   </svg>{history.length === 1 && <span className="chart-empty">{t.common.lossEmpty}</span>}</div>;
 }
 export function Formula({ caption, math, children, result, neutral }: { caption: string; math?: ReactNode; children?: ReactNode; result?: ReactNode; neutral?: boolean }) {

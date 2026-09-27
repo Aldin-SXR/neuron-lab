@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import { DEFAULT_CNN, cnnDataset, cnnLab, cnnTrace, createCnn, type CnnModel } from './cnn';
 import { createSequenceModel, generate, seqLab, seqTrace, sequenceTask, cleanWord, type SeqModel } from './sequence';
 import type { Params } from './lab';
+import { format } from './engine';
 import { en } from './locales/en';
 import { bs } from './locales/bs';
 
@@ -91,12 +92,17 @@ test('memory sequences are balanced and word input is validated', () => {
     const task = sequenceTask('memory', '', length);
     assert.equal(task.data.filter(s => s.x[0] === 1).length, task.data.length / 2);
     assert.ok(task.data.every(s => s.y.at(-1) === s.x[0] && s.y.slice(0, -1).every(y => y === null)));
+    assert.equal(new Set(task.data.map(s => s.x.join(''))).size, task.data.length, `length ${length} has duplicates`);
   }
   assert.equal(cleanWord(' Neuron '), 'neuron');
   assert.equal(cleanWord('šećer'), 'šećer');
   assert.equal(cleanWord('aa'), null);
   assert.equal(cleanWord('aaaa'), null);
   assert.equal(cleanWord('abc1'), null);
+  assert.equal(cleanWord('c\u030Cevapi'), 'čevapi', 'a letter typed with a separate accent mark');
+  assert.equal(format(-0.004, 1), '0.0');
+  assert.equal(format(-0.04, 1), '0.0');
+  assert.equal(format(-0.5, 1), '-0.5');
 });
 test('the Bosnian translation has the same structure as English and no empty text', () => {
   function compare(a: unknown, b: unknown, path: string) {
@@ -113,4 +119,13 @@ test('the Bosnian translation has the same structure as English and no empty tex
   assert.equal(bs.common.layers(3), '3 sloja');
   assert.equal(bs.common.parameters(12), '12 parametara');
   assert.equal(bs.common.neurons(21), '21 neuron');
+  assert.equal(bs.seq.hiddenCount(1), '1 skrivena jedinica');
+  assert.equal(bs.seq.hiddenCount(3), '3 skrivene jedinice');
+  assert.equal(en.seq.hiddenCount(1), '1 hidden unit');
+  assert.match(bs.ann.step.trainText(4), /na svim primjerima \(4 primjera\)/);
+  assert.match(bs.cnn.step.trainText(24), /\(24 slike\)/);
+  assert.match(bs.cnn.step.trainText(48), /\(48 slika\)/);
+  assert.match(bs.seq.step.trainText(32), /\(32 niza\)/);
+  assert.match(bs.cnn.step.updateDenseText(4), /^Sve 4 težine/);
+  assert.match(bs.cnn.step.updateDenseText(8), /^Svih 8 težina/);
 });

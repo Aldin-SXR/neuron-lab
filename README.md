@@ -25,8 +25,8 @@ If Chromium is not installed, run `npx playwright install chromium` before brows
 ## Explore
 
 - **First visit:** a welcome dialog offers a language choice and a one-minute guided tour that spotlights each part of the interface. The tour and the guide can be reopened from the header at any time.
-- **Language and text size:** switch between English (EN) and Bosnian (BS) in the header. The choice is remembered, and the page's `lang` attribute follows it. The A−/A+ control scales all text (100%, 112.5%, 125%).
-- **Learn:** step through every calculation of one example: forward pass, loss, backpropagation, then the parameter updates. “Next step”, “Back” (exact undo), and “Play” are labeled buttons; ← / → / space work as keyboard shortcuts. A hint under each step says what to do next.
+- **Language and text size:** switch between English (EN) and Bosnian (BS) in the header. The choice is remembered, and the page's `lang` attribute follows it. Bosnian prose and metrics use a decimal comma; formulas keep the decimal point. The A−/A+ control scales all text, including the diagrams (100%, 112.5%, 125%).
+- **Learn:** step through every calculation of one example: forward pass, loss, backpropagation, then the parameter updates. “Next step”, “Back” (exact undo), and “Play” are labeled buttons; ← / → / space work as keyboard shortcuts. Inside the network picker and tabs, arrow keys move between options instead. A hint under each step says what to do next.
 - **Train:** train one epoch per step/tick using stochastic gradient descent. Switching from a partially completed lesson finishes its pending updates before training the epoch, so the first epoch count may be fractional.
 - **Inspect:** click any neuron, connection, feature-map cell, filter, or time step to see its formula with the actual numbers.
 - **Save:** each architecture saves its own network, weights, settings, and learning rate in this browser. Restore starts a fresh history at the saved weights. No account or backend is used, and fonts are bundled locally.

@@ -155,4 +155,6 @@ export function trainEpoch(frame: Frame, data: Sample[], learningRate: number): 
   return next;
 }
 export function parameterCount(network: Network) { return network.layers.reduce((s, l) => s + l.weights.flat().length + l.biases.length, 0); }
-export function format(value: number, digits = 4): string { return Math.abs(value) > 1e5 || (Math.abs(value) < 0.0001 && value !== 0) ? value.toExponential(2) : value.toFixed(digits); }
+/** Fixed-point text without a misleading "-0.0" for tiny negative values. */
+export function fixed(value: number, digits: number): string { const text = value.toFixed(digits); return /^-0\.?0*$/.test(text) ? text.slice(1) : text; }
+export function format(value: number, digits = 4): string { return Math.abs(value) > 1e5 || (Math.abs(value) < 0.0001 && value !== 0) ? value.toExponential(2) : fixed(value, digits); }

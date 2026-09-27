@@ -65,6 +65,8 @@ export function CnnView({ frame, pixels, selection, onSelect, training, classes 
             const convShown = progress.conv(k), poolShown = progress.pool(k);
             const filterGrad = showGradients && progress.backConv(k);
             const mapGrad = showGradients && progress.backPool(k);
+            // Pooled values receive their gradient as soon as the output scores are backpropagated.
+            const poolGrad = showGradients && progress.backDense;
             return <div className="cnn-row" key={k}>
               <button className={`kernel-grid ${isSel('filter', k) || (selection.kind === 'map' && selection.k === k) ? 'selected' : ''}`} style={{ gridTemplateColumns: `repeat(${KERNEL}, calc(var(--cell) * 1.35))` }} onClick={() => onSelect({ kind: 'filter', k })} aria-label={T.filterAria(k + 1)}>
                 {filters[k].slice(0, 9).map((w, q) => { const v = filterGrad ? tr.grads[`f${k}`][q] : w, s = filterGrad ? filterGradScale : filterScale; return <span key={q} className="cell" style={{ background: valueColor(v, s), color: inkColor(v, s) }} title={format(v)}>{format(v, 1)}</span>; })}
@@ -75,7 +77,7 @@ export function CnnView({ frame, pixels, selection, onSelect, training, classes 
               </div>
               <span className="cnn-arrow small" aria-hidden>→</span>
               <div className="pool-grid" style={{ gridTemplateColumns: `repeat(${POOLED}, calc(var(--cell) * 1.45))` }}>
-                {tr.pooled[k].map((v, p) => { const value = mapGrad ? tr.dFlat[k * 4 + p] : v; return <button key={p} className={`cell ${isSel('pool', k, p) ? 'selected' : ''}`} style={poolShown ? { background: valueColor(value, mapGrad ? dFlatScale : mapScale), color: inkColor(value, mapGrad ? dFlatScale : mapScale) } : undefined} onClick={() => onSelect({ kind: 'pool', k, p })} aria-label={T.poolAria(k + 1, Math.floor(p / POOLED) + 1, p % POOLED + 1, poolShown ? format(value) : null)}>{poolShown ? format(value, 1) : '—'}</button>; })}
+                {tr.pooled[k].map((v, p) => { const value = poolGrad ? tr.dFlat[k * 4 + p] : v; return <button key={p} className={`cell ${isSel('pool', k, p) ? 'selected' : ''}`} style={poolShown ? { background: valueColor(value, poolGrad ? dFlatScale : mapScale), color: inkColor(value, poolGrad ? dFlatScale : mapScale) } : undefined} onClick={() => onSelect({ kind: 'pool', k, p })} aria-label={T.poolAria(k + 1, Math.floor(p / POOLED) + 1, p % POOLED + 1, poolShown ? format(value) : null)}>{poolShown ? format(value, 1) : '—'}</button>; })}
               </div>
             </div>;
           })}
