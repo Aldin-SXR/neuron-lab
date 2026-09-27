@@ -1,53 +1,56 @@
-import { ArrowDown, ArrowRight, SlidersHorizontal, Sparkles } from 'lucide-react';
+import { ArrowRight, SlidersHorizontal } from 'lucide-react';
 import { format, type Activation, type Frame } from './engine';
+import { useI18n } from './i18n';
 import type { Selection } from './NetworkView';
+import { FlowArrow, Formula, InspectorShell, Tip } from './ui';
 
 const activationFormula: Record<Activation, string> = { tanh: 'a = tanh(z)', sigmoid: 'a = 1 / (1 + e⁻ᶻ)', relu: 'a = max(0, z)', linear: 'a = z', softmax: 'aⱼ = eᶻʲ / Σₖ eᶻᵏ' };
 const derivativeFormula: Record<Activation, string> = { tanh: 'f′(z) = 1 − a²', sigmoid: 'f′(z) = a(1 − a)', relu: 'f′(z) = 1 if z > 0, else 0', linear: 'f′(z) = 1', softmax: 'δⱼ = aⱼ(gⱼ − Σₖ gₖaₖ)' };
 export function Inspector({ frame, selection, rate, onEdit }: { frame: Frame; selection: Selection | null; rate: number; onEdit: (s: Selection) => void }) {
+  const { t } = useI18n();
+  const T = t.ann.inspector;
   const event = frame.plan[frame.cursor];
   const selected = selection ?? { layer: event.layer ?? 0, neuron: event.neuron ?? 0, input: event.input, bias: event.bias };
   const { layer: l, neuron: j } = selected;
-  if (l < 0) return <aside className="inspector card"><div className="panel-heading"><Sparkles size={16}/><h2>Inside the calculation</h2></div><div className="inspector-content"><span className="eyebrow">INPUT FEATURE</span><h3>Meet x{j + 1}</h3><div className="formula-box"><span className="math">x{j + 1} = {format(frame.trace.a[0][j])}</span></div><p>Inputs are the information we give the network. They have no trainable weights of their own. Each outgoing connection multiplies this value by a weight.</p><div className="tip"><Sparkles size={16}/><p>Select a neuron in the next layer to see where this input goes.</p></div></div></aside>;
+  if (l < 0) return <InspectorShell><span className="eyebrow">{T.inputEyebrow}</span><h3>{T.inputTitle(j + 1)}</h3><Formula caption="x" math={<>x{j + 1} = {format(frame.trace.a[0][j])}</>}/><p>{T.inputText}</p><Tip>{T.inputTip}</Tip></InspectorShell>;
   const layer = frame.trace.source.layers[l];
-  const t = frame.trace;
+  const tr = frame.trace;
   const isOutput = l === frame.network.layers.length - 1;
   const i = selected.input ?? 0;
   const bias = selected.bias ?? false;
   const old = bias ? layer.biases[j] : layer.weights[j][i];
-  const gradient = bias ? t.db[l][j] : t.dw[l][j][i];
+  const gradient = bias ? tr.db[l][j] : tr.dw[l][j][i];
   const actual = bias ? frame.network.layers[l].biases[j] : frame.network.layers[l].weights[j][i];
   const phase = event.phase;
-  const upstream = isOutput ? t.a[l + 1][j] - t.target[j] : frame.trace.source.layers[l + 1].weights.reduce((s, row, k) => s + row[j] * t.delta[l + 1][k], 0);
-  const upstreamVector = t.a[l + 1].map((a, n) => isOutput ? a - t.target[n] : frame.trace.source.layers[l + 1].weights.reduce((s, row, k) => s + row[n] * t.delta[l + 1][k], 0));
-  const derivative = layer.activation === 'tanh' ? 1 - t.a[l + 1][j] ** 2 : layer.activation === 'sigmoid' ? t.a[l + 1][j] * (1 - t.a[l + 1][j]) : layer.activation === 'relu' ? Number(t.z[l][j] > 0) : 1;
-  return <aside className="inspector card">
-    <div className="panel-heading"><Sparkles size={16}/><h2>Inside the calculation</h2></div>
-    <div className="inspector-content">
-      <div className="inspector-kicker"><span className="eyebrow">{isOutput ? 'OUTPUT LAYER' : `HIDDEN LAYER ${l + 1}`}</span><span className="small-chip">Neuron {j + 1}</span></div>
-      <h3>{phase === 'backward' ? 'Trace the responsibility.' : phase === 'update' ? 'A small step toward better.' : phase === 'loss' ? 'How far off are we?' : 'A little math. A new signal.'}</h3>
-      {phase === 'loss' ? <>
-        <p>The loss measures the distance between our prediction and the target. Smaller is better.</p>
-        <div className="formula-box"><div className="formula-caption">HALF SQUARED ERROR</div><div className="math">L = ½ Σⱼ (ŷⱼ − yⱼ)²</div><div className="numeric-formula">½ × ({t.a.at(-1)!.map((v, k) => `(${format(v)} − ${t.target[k]})²`).join(' + ')})</div><div className="formula-result">= {format(t.loss, 6)}</div></div>
-        <div className="tip"><Sparkles size={16}/><p>This loss is for one example. The chart below averages the loss over the entire dataset.</p></div>
-      </> : phase === 'backward' ? <>
-        <p>How much does this neuron's weighted sum affect the loss? The chain rule connects the two.</p>
-        <div className="formula-box"><div className="formula-caption">1 · ERROR SIGNAL</div><div className="math">{layer.activation === 'softmax' ? derivativeFormula.softmax : isOutput ? 'δ = (a − y) · f′(z)' : 'δⱼ = (Σₖ wₖⱼ δₖ) · f′(zⱼ)'}</div>{layer.activation !== 'softmax' ? <div className="numeric-formula">{derivativeFormula[layer.activation]}<br/>δ = {format(upstream)} × {format(derivative)}</div> : <div className="numeric-formula">δ = {format(t.a[l + 1][j])} × ({format(upstream)} − {format(upstreamVector.reduce((s, g, k) => s + g * t.a[l + 1][k], 0))})<br/>The sum includes every neuron in this layer.</div>}<div className="formula-result">δ = {format(t.delta[l][j], 6)}</div></div>
-        <ArrowDown className="flow-arrow" size={17}/>
-        <div className="formula-box neutral"><div className="formula-caption">2 · WEIGHT GRADIENT · INPUT {i + 1}</div><div className="math">∂L/∂w = δ · aᵖʳᵉᵛ</div><div className="numeric-formula">{format(t.delta[l][j])} × {format(t.a[l][i])}</div><div className="formula-result">= {format(t.dw[l][j][i], 6)}</div><div className="numeric-formula">Bias gradient ∂L/∂b = δ</div></div>
-      </> : phase === 'update' ? <>
-        <p>Move {bias ? 'the bias' : 'this weight'} against its gradient to reduce the loss. The learning rate controls the step size.</p>
-        <div className="formula-box"><div className="formula-caption">STOCHASTIC GRADIENT DESCENT</div><div className="math">{bias ? 'b' : 'w'}<sub>new</sub> = {bias ? 'b' : 'w'}<sub>old</sub> − η · ∂L/∂{bias ? 'b' : 'w'}</div><div className="numeric-formula">{format(old)} − {rate} × {format(gradient)}</div><div className="formula-result">= {format(old - rate * gradient, 6)}</div></div>
-        <div className="value-change"><div><span>Before sample</span><strong>{format(old)}</strong></div><ArrowRight size={17}/><div><span>Current value</span><strong className={old !== actual ? 'changed' : ''}>{format(actual)}</strong></div></div>
-        <div className="tip"><Sparkles size={16}/><p>{old === actual ? 'This parameter is unchanged so far (or has a zero gradient).' : `Changed by ${format(actual - old, 6)}.`} Gradients use the weights from the start of this sample.</p></div>
-      </> : <>
-        <p>Gather the incoming signals, add a bias, then apply an activation function.</p>
-        <div className="formula-box"><div className="formula-caption">1 · WEIGHTED SUM</div><div className="math">z = Σᵢ wᵢxᵢ + b</div><div className="numeric-formula weighted-terms">{layer.weights[j].map((w, k) => <span key={k}>{k > 0 ? '+ ' : ''}<b>{format(w, 3)}</b> × {format(t.a[l][k], 3)} </span>)}<span>+ {format(layer.biases[j], 3)}</span></div><div className="formula-result">z = {format(t.z[l][j])}</div></div>
-        <ArrowDown className="flow-arrow" size={17}/>
-        <div className="formula-box neutral"><div className="formula-caption">2 · {layer.activation.toUpperCase()} ACTIVATION</div><div className="math">{activationFormula[layer.activation]}</div><div className="formula-result">a = {format(t.a[l + 1][j])}</div></div>
-        <p className="fine-print">{phase === 'input' ? 'Preview of the next calculation. Step forward to send the first signal.' : 'Values use the weights at the start of this example.'}{layer.activation === 'softmax' ? ' Softmax uses all logits in this layer together.' : ''}</p>
-      </>}
-      <button className="text-button edit-parameters" onClick={() => onEdit(selected)}><SlidersHorizontal size={14}/> Edit this neuron's parameters</button>
-    </div>
-  </aside>;
+  const upstreamVector = tr.a[l + 1].map((a, n) => isOutput ? a - tr.target[n] : tr.source.layers[l + 1].weights.reduce((s, row, k) => s + row[n] * tr.delta[l + 1][k], 0));
+  const upstream = upstreamVector[j];
+  const derivative = layer.activation === 'tanh' ? 1 - tr.a[l + 1][j] ** 2 : layer.activation === 'sigmoid' ? tr.a[l + 1][j] * (1 - tr.a[l + 1][j]) : layer.activation === 'relu' ? Number(tr.z[l][j] > 0) : 1;
+  return <InspectorShell>
+    <div className="inspector-kicker"><span className="eyebrow">{isOutput ? T.outputEyebrow : T.hiddenEyebrow(l + 1)}</span><span className="small-chip">{T.neuron(j + 1)}</span></div>
+    <h3>{phase === 'backward' ? T.backwardTitle : phase === 'update' ? T.updateTitle : phase === 'loss' ? T.lossTitle : T.forwardTitle}</h3>
+    {phase === 'loss' ? <>
+      <p>{T.lossText}</p>
+      <Formula caption={T.lossCaption} math="L = ½ Σⱼ (ŷⱼ − yⱼ)²" result={<>= {format(tr.loss, 6)}</>}>½ × ({tr.a.at(-1)!.map((v, k) => `(${format(v)} − ${tr.target[k]})²`).join(' + ')})</Formula>
+      <Tip>{T.lossTip}</Tip>
+    </> : phase === 'backward' ? <>
+      <p>{T.backwardText}</p>
+      <Formula caption={T.errorSignal} math={layer.activation === 'softmax' ? derivativeFormula.softmax : isOutput ? 'δ = (a − y) · f′(z)' : 'δⱼ = (Σₖ wₖⱼ δₖ) · f′(zⱼ)'} result={<>δ = {format(tr.delta[l][j], 6)}</>}>
+        {layer.activation !== 'softmax' ? <>{layer.activation === 'relu' ? T.reluDerivative : derivativeFormula[layer.activation]}<br/>δ = {format(upstream)} × {format(derivative)}</> : <>δ = {format(tr.a[l + 1][j])} × ({format(upstream)} − {format(upstreamVector.reduce((s, g, k) => s + g * tr.a[l + 1][k], 0))})<br/>{T.softmaxSum}</>}
+      </Formula>
+      <FlowArrow/>
+      <Formula neutral caption={T.weightGradient(i + 1)} math="∂L/∂w = δ · aᵖʳᵉᵛ" result={<>= {format(tr.dw[l][j][i], 6)}</>}>{format(tr.delta[l][j])} × {format(tr.a[l][i])}<br/>{T.biasGradient}</Formula>
+    </> : phase === 'update' ? <>
+      <p>{T.updateText(bias)}</p>
+      <Formula caption={t.common.sgd} math={<>{bias ? 'b' : 'w'}<sub>new</sub> = {bias ? 'b' : 'w'}<sub>old</sub> − η · ∂L/∂{bias ? 'b' : 'w'}</>} result={<>= {format(old - rate * gradient, 6)}</>}>{format(old)} − {rate} × {format(gradient)}</Formula>
+      <div className="value-change"><div><span>{t.common.before}</span><strong>{format(old)}</strong></div><ArrowRight size={18}/><div><span>{t.common.current}</span><strong className={old !== actual ? 'changed' : ''}>{format(actual)}</strong></div></div>
+      <Tip>{old === actual ? t.common.unchanged : t.common.changedBy(format(actual - old, 6))} {t.common.gradientsFrozen}</Tip>
+    </> : <>
+      <p>{T.forwardText}</p>
+      <Formula caption={T.weightedSum} math="z = Σᵢ wᵢxᵢ + b" result={<>z = {format(tr.z[l][j])}</>}><span className="weighted-terms">{layer.weights[j].map((w, k) => <span key={k}>{k > 0 ? '+ ' : ''}<b>{format(w, 3)}</b> × {format(tr.a[l][k], 3)} </span>)}<span>+ {format(layer.biases[j], 3)}</span></span></Formula>
+      <FlowArrow/>
+      <Formula neutral caption={T.activation(layer.activation.toUpperCase())} math={activationFormula[layer.activation]} result={<>a = {format(tr.a[l + 1][j])}</>}/>
+      <p className="fine-print">{phase === 'input' ? T.preview : T.startValues}{layer.activation === 'softmax' ? T.softmaxNote : ''}</p>
+    </>}
+    <button className="text-button edit-parameters" onClick={() => onEdit(selected)}><SlidersHorizontal size={15}/> {T.editButton}</button>
+  </InspectorShell>;
 }

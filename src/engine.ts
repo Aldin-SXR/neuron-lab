@@ -1,5 +1,7 @@
 // An intentionally small, framework-independent ANN engine. All gradients are
 // explicit so the visualizer can explain exactly the calculation being used.
+import { DivergedError, type Metric, type Phase } from './lab';
+export type { Metric } from './lab';
 export type Activation = 'linear' | 'tanh' | 'sigmoid' | 'relu' | 'softmax';
 export type Problem = 'xor' | 'circle' | 'diagonal';
 export interface LayerSpec { size: number; activation: Activation }
@@ -7,14 +9,14 @@ export interface Layer extends LayerSpec { weights: number[][]; biases: number[]
 export interface Network { layers: Layer[] }
 export interface Sample { x: number[]; y: number }
 export interface Trace { source: Network; a: number[][]; z: number[][]; delta: number[][]; dw: number[][][]; db: number[][]; loss: number; target: number[] }
-export interface Step { phase: 'input' | 'forward' | 'loss' | 'backward' | 'update'; layer?: number; neuron?: number; input?: number; bias?: boolean }
-export interface Metric { epoch: number; loss: number; accuracy: number }
+export interface Step { phase: Phase; layer?: number; neuron?: number; input?: number; bias?: boolean }
 export interface Frame {
   network: Network; trace: Trace; plan: Step[]; cursor: number;
   sampleIndex: number; samplesSeen: number; history: Metric[]; metric: Metric;
   learningRate?: number;
 }
 export const DEFAULT_SPECS: LayerSpec[] = [{ size: 4, activation: 'tanh' }, { size: 3, activation: 'tanh' }, { size: 1, activation: 'sigmoid' }];
+export const RECOMMENDED_RATE: Record<Problem, number> = { xor: 0.3, circle: 0.1, diagonal: 0.1 };
 export const ACTIVATIONS: Activation[] = ['tanh', 'sigmoid', 'relu', 'linear', 'softmax'];
 
 export function random(seed: number) {
@@ -111,7 +113,7 @@ export function createFrame(network: Network, data: Sample[], sampleIndex = 1, s
   return { network, trace: trace(network, data[sampleIndex]), plan: plan(network), cursor: 0, sampleIndex, samplesSeen, metric, history: history ?? [metric] };
 }
 function checked(network: Network) {
-  if (network.layers.some(l => [...l.biases, ...l.weights.flat()].some(v => !Number.isFinite(v) || Math.abs(v) > 1e8))) throw new Error('The weights grew too large. Reduce the learning rate or reset the network.');
+  if (network.layers.some(l => [...l.biases, ...l.weights.flat()].some(v => !Number.isFinite(v) || Math.abs(v) > 1e8))) throw new DivergedError();
   return network;
 }
 export function step(frame: Frame, data: Sample[], learningRate: number): Frame {
@@ -153,4 +155,6 @@ export function trainEpoch(frame: Frame, data: Sample[], learningRate: number): 
   return next;
 }
 export function parameterCount(network: Network) { return network.layers.reduce((s, l) => s + l.weights.flat().length + l.biases.length, 0); }
-export function format(value: number, digits = 4): string { return Math.abs(value) > 1e5 || (Math.abs(value) < 0.0001 && value !== 0) ? value.toExponential(2) : value.toFixed(digits); }
+/** Fixed-point text without a misleading "-0.0" for tiny negative values. */
+export function fixed(value: number, digits: number): string { const text = value.toFixed(digits); return /^-0\.?0*$/.test(text) ? text.slice(1) : text; }
+export function format(value: number, digits = 4): string { return Math.abs(value) > 1e5 || (Math.abs(value) < 0.0001 && value !== 0) ? value.toExponential(2) : fixed(value, digits); }
